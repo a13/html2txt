@@ -13,28 +13,21 @@
 (define space-tags '(span option))
 (define list-tags '(ol ul))
 
-(define links '())
-
-(define (tag-parser contents)
-  (let ([tag (car contents)]
-        [text (cdr contents)])
-    (cond [(member tag ignored-tags) '()]
-          [(member tag space-tags) (list (parse-xexp text) " ")]
-          [(member tag br-tags) (list (parse-xexp text) "\n")]
-          [(member tag list-tags) (list "\n" (parse-xexp text) "\n")]
-          [(eq? tag 'td) (list (parse-xexp text) "\t")]
-          [(eq? tag 'li) (list "* " (parse-xexp text) "\n")]
-          [(eq? tag 'a)
-             (list "[" (parse-xexp text) "]")]
-          [else #f])))
+(define (ignored-tag? tag)
+  (member tag ignored-tags))
+(define (space-tag? tag)
+  (member tag space-tags))
+(define (br-tag? tag)
+  (member tag br-tags))
+(define (list-tag? tag)
+  (member tag list-tags))
 
 (define (href-parser contents)
-    (let ([tag (car contents)]
-          [text (cdr contents)])
-      (if (eq? tag 'href)
-          (list (car text) "\n")
-          #f)))
-      
+  (match contents
+    [(cons 'link _) (list)]
+    [(cons 'href text)
+     (list (car text) "\n")]
+    [_ #f]))
 
 (define (parse-links contents) 
   (cond [(empty? contents) ""]
@@ -44,6 +37,21 @@
                     (list (parse-links (car contents)) 
                           (parse-links (cdr contents)))))]
         [else ""]))
+
+(define (tag-parser contents)
+  (match contents
+    [(cons (? ignored-tag?) text)
+     (list)]
+    [(cons (? space-tag?) text)
+     (list (parse-xexp text) " ")]
+    [(cons (? br-tag?) text)
+     (list (parse-xexp text) "\n")]
+    [(cons (? list-tag?) text)
+     (list "\n" (parse-xexp text) "\n")]
+    [(cons 'td text) (list (parse-xexp text) "\t")]
+    [(cons 'li text) (list "* " (parse-xexp text) "\n")]
+    [(cons 'a text) (list " [" (parse-xexp text) "]")]
+    [_ #f]))
 
 (define (despace str)
   (regexp-replace* #rx"^[ \t\n]{2,}|[ \t\n]+$" str ""))
@@ -63,12 +71,11 @@
   (with-output-to-file (string-append filename ".txt")  #:exists 'replace
     (lambda ()
       (display
-       (let ([xexp (file->xexp filename)])
-         (list
-          (parse-xexp xexp)
-          (parse-links xexp)))))))
-
-
+       (apply string-append
+              (let ([xexp (file->xexp filename)])
+                (list
+                 (parse-xexp xexp)
+                 (parse-links xexp))))))))
 
 (h2t "/tmp/index.html")
 
