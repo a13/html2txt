@@ -57,10 +57,19 @@
 (define parse-xexp
   (match-lambda
     [(cons head tail)
-     (or (tag-parser head tail)
-         (string-append
-          (parse-xexp head)
-          (parse-xexp tail)))]
+     (let ((res
+            (match (dict-ref tags-assocs head #f)
+              [#f #f]
+              ['ignore ""]
+              [(cons prefix suffix)
+               (string-append prefix (parse-xexp tail) suffix)]
+              [suffix
+               (string-append (parse-xexp tail) suffix)]
+              [_ #f])))
+       (or res
+           (string-append
+            (parse-xexp head)
+            (parse-xexp tail))))]
     [wtf (despace wtf)]))
 
 (define (h2t filename)
