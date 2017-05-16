@@ -4,29 +4,23 @@
 
 (require (planet neil/html-parsing:3:0))
 
-(define (file->xexp filename)
-  (html->xexp
-   (open-input-file #:mode 'text filename)))
+(define file->xexp
+  (compose html->xexp (curry open-input-file #:mode 'text)))
 
 (define ignored-tags '(*COMMENT* *DECL* @ script style))
 (define br-tags '(table title br div p form select tr pre))
 (define space-tags '(span option))
 (define list-tags '(ol ul))
 
-(define href-parser
-  (match-lambda
-    [(cons 'link _) (list)]
-    [(list 'href text)
-     (list text "\n")]
-    [_ #f]))
-
 (define (parse-links contents)
   (match contents
+    [(cons 'link _) ""]
+    [(list 'href text)
+     (string-append text "\n")]
     [(cons head tail)
      (apply string-append
-            (or (href-parser contents)
-                (list (parse-links head)
-                      (parse-links tail))))]
+            (list (parse-links head)
+                  (parse-links tail)))]
     [_ ""]))
 
 ;; генерим хэш вида '(тэг . суффикс) или '(тэг . (префикс . суффикс))
@@ -70,13 +64,15 @@
     [wtf (despace wtf)]))
 
 (define (h2t filename)
-  (with-output-to-file (string-append filename ".txt")  #:exists 'replace
-                       (lambda ()
-                         (display
-                          (apply string-append
-                                 (let ([xexp (file->xexp filename)])
-                                   (list
-                                    (parse-xexp xexp)
-                                    (parse-links xexp))))))))
+  (with-output-to-file
+      (string-append filename ".txt") #:exists 'replace
+      (lambda ()
+        (display
+         (apply string-append
+                (let ([xexp (file->xexp filename)])
+                  (list
+                   (parse-xexp xexp)
+                   (parse-links xexp))))))))
 
-(h2t "/tmp/index.html")
+
+;; (h2t "/tmp/index.html")
