@@ -18,9 +18,9 @@
     [(list 'href text)
      (string-append text "\n")]
     [(cons head tail)
-     (apply string-append
-            (list (parse-links head)
-                  (parse-links tail)))]
+     (string-append
+      (parse-links head)
+      (parse-links tail))]
     [_ ""]))
 
 ;; генерим хэш вида '(тэг . суффикс) или '(тэг . (префикс . суффикс))
