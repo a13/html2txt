@@ -13,15 +13,6 @@
 (define space-tags '(span option))
 (define list-tags '(ol ul))
 
-(define (ignored-tag? tag)
-  (member tag ignored-tags))
-(define (space-tag? tag)
-  (member tag space-tags))
-(define (br-tag? tag)
-  (member tag br-tags))
-(define (list-tag? tag)
-  (member tag list-tags))
-
 (define href-parser
   (match-lambda
     [(cons 'link _) (list)]
@@ -37,7 +28,6 @@
                 (list (parse-links head)
                       (parse-links tail))))]
     [_ ""]))
-
 
 ;; генерим хэш вида '(тэг . суффикс) или '(тэг . (префикс . суффикс))
 (define tags-assocs
@@ -55,18 +45,14 @@
       (li . ("* " . "\n"))
       (a . (" [" . "]"))))))
 
-(define tag-parser
-  (match-lambda
-    [(cons tag text)
-     (let ((wrappers (dict-ref tags-assocs tag #f)))
-       (match wrappers
-         [#f #f]
-         ['ignore '()]
-         [(cons prefix suffix)
-          (list prefix (parse-xexp text) suffix)]
-         [suffix
-          (list (parse-xexp text) suffix)]
-         [_ #f]))]
+(define (tag-parser tag text)
+  (match (dict-ref tags-assocs tag #f)
+    [#f #f]
+    ['ignore '()]
+    [(cons prefix suffix)
+     (list prefix (parse-xexp text) suffix)]
+    [suffix
+     (list (parse-xexp text) suffix)]
     [_ #f]))
 
 (define (despace str)
@@ -74,11 +60,11 @@
       (regexp-replace* #rx"^[ \t\n]{2,}|[ \t\n]+$" str "")
       ""))
 
-(define (parse-xexp contents)
-  (match contents
+(define parse-xexp
+  (match-lambda
     [(cons head tail)
      (apply string-append
-            (or (tag-parser contents)
+            (or (tag-parser head tail)
                 (list (parse-xexp head)
                       (parse-xexp tail))))]
     [_ (despace contents)]))
