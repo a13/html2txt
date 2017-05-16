@@ -2,10 +2,10 @@
 
 (provide h2t)
 
-(require (planet neil/html-parsing:2:0))
+(require (planet neil/html-parsing:3:0))
 
 (define (file->xexp filename)
-  (html->xexp 
+  (html->xexp
    (open-input-file #:mode 'text filename)))
 
 (define ignored-tags '(*COMMENT* *DECL* @ script style))
@@ -22,61 +22,75 @@
 (define (list-tag? tag)
   (member tag list-tags))
 
-(define (href-parser contents)
-  (match contents
+(define href-parser
+  (match-lambda
     [(cons 'link _) (list)]
-    [(cons 'href text)
-     (list (car text) "\n")]
+    [(list 'href text)
+     (list text "\n")]
     [_ #f]))
 
-(define (parse-links contents) 
-  (cond [(empty? contents) ""]
-        [(list? contents)
-         (apply string-append
-                (or (href-parser contents)
-                    (list (parse-links (car contents)) 
-                          (parse-links (cdr contents)))))]
-        [else ""]))
-
-(define (tag-parser contents)
+(define (parse-links contents)
   (match contents
-    [(cons (? ignored-tag?) text)
-     (list)]
-    [(cons (? space-tag?) text)
-     (list (parse-xexp text) " ")]
-    [(cons (? br-tag?) text)
-     (list (parse-xexp text) "\n")]
-    [(cons (? list-tag?) text)
-     (list "\n" (parse-xexp text) "\n")]
-    [(cons 'td text) (list (parse-xexp text) "\t")]
-    [(cons 'li text) (list "* " (parse-xexp text) "\n")]
-    [(cons 'a text) (list " [" (parse-xexp text) "]")]
+    [(cons head tail)
+     (apply string-append
+            (or (href-parser contents)
+                (list (parse-links head)
+                      (parse-links tail))))]
+    [_ ""]))
+
+
+;; генерим хэш вида '(тэг . суффикс) или '(тэг . (префикс . суффикс))
+(define tags-assocs
+  (make-hash
+   (append
+    (map (curryr cons 'ignore)
+         ignored-tags)
+    (map (curryr cons " ")
+         space-tags)
+    (map (curryr cons "\n")
+         br-tags)
+    (map (curryr cons '("\n" . "\n"))
+         list-tags)
+    '((td . "\t")
+      (li . ("* " . "\n"))
+      (a . (" [" . "]"))))))
+
+(define tag-parser
+  (match-lambda
+    [(cons tag text)
+     (let ((wrappers (dict-ref tags-assocs tag #f)))
+       (match wrappers
+         [#f #f]
+         ['ignore '()]
+         [(cons prefix suffix)
+          (list prefix (parse-xexp text) suffix)]
+         [suffix
+          (list (parse-xexp text) suffix)]
+         [_ #f]))]
     [_ #f]))
 
 (define (despace str)
-  (regexp-replace* #rx"^[ \t\n]{2,}|[ \t\n]+$" str ""))
+  (if (string? str)
+      (regexp-replace* #rx"^[ \t\n]{2,}|[ \t\n]+$" str "")
+      ""))
 
 (define (parse-xexp contents)
-  (cond [(empty? contents) ""]
-        [(list? contents)
-         (apply string-append
-                (or (tag-parser contents)
-                    (list (parse-xexp (car contents)) 
-                          (parse-xexp (cdr contents)))))]
-        [(string? contents) 
-         (despace contents)]
-        [else ""]))
+  (match contents
+    [(cons head tail)
+     (apply string-append
+            (or (tag-parser contents)
+                (list (parse-xexp head)
+                      (parse-xexp tail))))]
+    [_ (despace contents)]))
 
 (define (h2t filename)
   (with-output-to-file (string-append filename ".txt")  #:exists 'replace
-    (lambda ()
-      (display
-       (apply string-append
-              (let ([xexp (file->xexp filename)])
-                (list
-                 (parse-xexp xexp)
-                 (parse-links xexp))))))))
+                       (lambda ()
+                         (display
+                          (apply string-append
+                                 (let ([xexp (file->xexp filename)])
+                                   (list
+                                    (parse-xexp xexp)
+                                    (parse-links xexp))))))))
 
 (h2t "/tmp/index.html")
-
-
