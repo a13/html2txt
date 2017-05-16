@@ -67,7 +67,7 @@
             (or (tag-parser head tail)
                 (list (parse-xexp head)
                       (parse-xexp tail))))]
-    [_ (despace contents)]))
+    [wtf (despace wtf)]))
 
 (define (h2t filename)
   (with-output-to-file (string-append filename ".txt")  #:exists 'replace
