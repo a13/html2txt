@@ -39,16 +39,6 @@
       (li . ("* " . "\n"))
       (a . (" [" . "]"))))))
 
-(define (tag-parser tag text)
-  (match (dict-ref tags-assocs tag #f)
-    [#f #f]
-    ['ignore ""]
-    [(cons prefix suffix)
-     (string-append prefix (parse-xexp text) suffix)]
-    [suffix
-     (string-append (parse-xexp text) suffix)]
-    [_ #f]))
-
 (define (despace str)
   (if (string? str)
       (regexp-replace* #rx"^[ \t\n]{2,}|[ \t\n]+$" str "")
@@ -57,19 +47,12 @@
 (define parse-xexp
   (match-lambda
     [(cons head tail)
-     (let ((res
-            (match (dict-ref tags-assocs head #f)
-              [#f #f]
-              ['ignore ""]
-              [(cons prefix suffix)
-               (string-append prefix (parse-xexp tail) suffix)]
-              [suffix
-               (string-append (parse-xexp tail) suffix)]
-              [_ #f])))
-       (or res
-           (string-append
-            (parse-xexp head)
-            (parse-xexp tail))))]
+     (match (dict-ref tags-assocs head #f)
+       ['ignore ""]
+       [#f (string-append (parse-xexp head) (parse-xexp tail))]
+       [(cons prefix suffix)
+        (string-append prefix (parse-xexp tail) suffix)]
+       [suffix (string-append (parse-xexp tail) suffix)])]
     [wtf (despace wtf)]))
 
 (define (h2t filename)
