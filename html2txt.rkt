@@ -42,11 +42,11 @@
 (define (tag-parser tag text)
   (match (dict-ref tags-assocs tag #f)
     [#f #f]
-    ['ignore '()]
+    ['ignore ""]
     [(cons prefix suffix)
-     (list prefix (parse-xexp text) suffix)]
+     (string-append prefix (parse-xexp text) suffix)]
     [suffix
-     (list (parse-xexp text) suffix)]
+     (string-append (parse-xexp text) suffix)]
     [_ #f]))
 
 (define (despace str)
@@ -57,10 +57,10 @@
 (define parse-xexp
   (match-lambda
     [(cons head tail)
-     (apply string-append
-            (or (tag-parser head tail)
-                (list (parse-xexp head)
-                      (parse-xexp tail))))]
+     (or (tag-parser head tail)
+         (string-append
+          (parse-xexp head)
+          (parse-xexp tail)))]
     [wtf (despace wtf)]))
 
 (define (h2t filename)
@@ -68,11 +68,10 @@
       (string-append filename ".txt") #:exists 'replace
       (lambda ()
         (display
-         (apply string-append
-                (let ([xexp (file->xexp filename)])
-                  (list
-                   (parse-xexp xexp)
-                   (parse-links xexp))))))))
+         (let ([xexp (file->xexp filename)])
+           (string-append
+            (parse-xexp xexp)
+            (parse-links xexp)))))))
 
 
 ;; (h2t "/tmp/index.html")
